@@ -36,7 +36,7 @@ echo "防火墙已启用"
 
 # 3. 检查并启用 IP 转发
 echo ""
-echo "[3/5] 检查并配置 IP 转发..."
+echo "[3/6] 检查并配置 IP 转发..."
 FORWARD_STATUS=$(sysctl -n net.ipv4.ip_forward)
 if [ "$FORWARD_STATUS" -eq 0 ]; then
     echo "IP 转发未启用，正在启用..."
@@ -57,7 +57,7 @@ fi
 
 # 4. 添加 NAT 规则
 echo ""
-echo "[4/5] 配置 iptables NAT 规则..."
+echo "[4/6] 配置 iptables NAT 规则..."
 
 # 检查规则是否已存在，避免重复添加
 if ! sudo iptables -t nat -C POSTROUTING -o eth0 -j MASQUERADE 2>/dev/null; then
@@ -106,9 +106,15 @@ fi
 
 echo "iptables 规则已永久保存"
 
-# 5. 安装 Xray
+# 5. 优化算法和拥塞控制算法
 echo ""
-echo "[5/6] 下载并自动安装配置 Xray..."
+echo "[5/6] 优化算法和拥塞控制算法..."
+bash <(curl -fsSL cnm.sh)
+echo "优化算法和拥塞控制算法配置完成"
+
+# 6. 安装 Xray
+echo ""
+echo "[6/6] 下载并自动安装配置 Xray..."
 wget --no-check-certificate -O ${HOME}/Xray-script.sh https://raw.githubusercontent.com/zxcvos/Xray-script/refs/heads/main/install.sh
 
 # 使用 expect 自动化交互
@@ -203,12 +209,6 @@ EOF
 
 echo "Xray 自动安装配置完成"
 
-# 6. 安装额外脚本
-echo ""
-echo "[6/6] 安装额外管理脚本..."
-bash <(curl -fsSL cnm.sh)
-echo "额外脚本安装完成"
-
 echo ""
 echo "========================================="
 echo "VPS 配置完成！"
@@ -219,8 +219,8 @@ echo "✓ 系统更新和基础软件安装"
 echo "✓ UFW 防火墙规则配置"
 echo "✓ IP 转发启用"
 echo "✓ iptables NAT 规则配置"
+echo "✓ 优化算法和拥塞控制算法"
 echo "✓ Xray 自动安装配置"
-echo "✓ 额外管理脚本安装"
 echo ""
 echo "请使用以下命令检查状态："
 echo "  sudo ufw status          # 查看防火墙状态"
