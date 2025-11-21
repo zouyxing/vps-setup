@@ -108,24 +108,28 @@ wget --no-check-certificate -O ${HOME}/Xray-script.sh https://raw.githubusercont
 
 expect << 'EXPECT_EOF'
 set timeout 600
+log_user 1
 spawn bash /root/Xray-script.sh
 
-# 等待第一个菜单出现（可能是更新提示或主菜单）
+# 第一步：处理可能的更新提示
 expect {
-    -re {是否更新.*} {
-        puts "检测到可更新 → 自动发送 Y"
+    -re {是否更新} {
+        puts "\n>>> 检测到更新提示，发送 Y"
         send "Y\r"
         exp_continue
     }
     -re {请选择操作} {
-        puts "主菜单出现 → 选择 1 (完整安装)"
-        send "1\r"
+        puts "\n>>> 进入主菜单（无更新提示）"
     }
     timeout {
-        puts "等待菜单超时"
+        puts "\n>>> 等待菜单超时"
         exit 1
     }
 }
+
+# 第二步：主菜单选择 1（完整安装）
+puts ">>> 发送选项 1 (完整安装)"
+send "1\r"
 
 # 安装流程：自定义配置 → 输入 2
 expect {
