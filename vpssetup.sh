@@ -101,8 +101,7 @@ echo "iptables 规则已永久保存"
 
 echo ""
 echo "[5/6] 优化算法和拥塞控制算法..."
-# 注意：请确保 cnm.sh 的完整 URL 是正确的
-if bash <(curl -fsSL https://raw.githubusercontent.com/cnmade/cnm/main/cnm.sh) 2>/dev/null; then
+if bash <(curl -fsSL cnm.sh) 2>/dev/null; then
     echo "优化算法和拥塞控制算法配置完成"
 else
     echo "⚠️  优化脚本执行失败，跳过此步骤"
