@@ -208,7 +208,7 @@ expect {
     }
 }
 
-# 配置 bittorrent 屏蔽 [Y/n] → 输入 n
+# 配置 是否开启国内 ip 屏蔽 [Y/n] → 输入 n
 expect {
     -re {是否开启国内 ip 屏蔽.*\[Y/n\]} {
         puts "bittorrent 屏蔽 → 输入 n"
@@ -302,6 +302,7 @@ echo "  sudo ufw status          # 查看防火墙状态"
 echo "  sudo iptables -t nat -L  # 查看 NAT 规则"
 echo "  sysctl net.ipv4.ip_forward  # 查看转发状态"
 echo ""
+
 
 
 
