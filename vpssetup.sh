@@ -184,11 +184,11 @@ expect {
     }
 }
 
-# 是否重置路由规则 → 输入 n
+# 是否重置路由规则 → 输入 y
 expect {
     -re {是否重置路由规则} {
-        puts "不重置路由规则 → 输入 n"
-        send "n\r"
+        puts "重置路由规则 → 输入 y"
+        send "y\r"
     }
     timeout {
         puts "等待路由规则重置提示失败"
@@ -278,3 +278,4 @@ echo "  sudo ufw status          # 查看防火墙状态"
 echo "  sudo iptables -t nat -L  # 查看 NAT 规则"
 echo "  sysctl net.ipv4.ip_forward  # 查看转发状态"
 echo ""
+
