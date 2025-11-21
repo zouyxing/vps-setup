@@ -110,26 +110,19 @@ expect << 'EXPECT_EOF'
 set timeout 600
 spawn bash /root/Xray-script.sh
 
-# 自动检测是否有更新
+# 等待第一个菜单出现（可能是更新提示或主菜单）
 expect {
     -re {是否更新.*} {
         puts "检测到可更新 → 自动发送 Y"
         send "Y\r"
         exp_continue
     }
-    timeout {
-        puts "未检测到更新提示 → 继续"
-    }
-}
-
-# 主菜单：完整安装 → 输入 1
-expect {
     -re {请选择操作} {
         puts "主菜单出现 → 选择 1 (完整安装)"
         send "1\r"
     }
     timeout {
-        puts "主菜单匹配失败"
+        puts "等待菜单超时"
         exit 1
     }
 }
