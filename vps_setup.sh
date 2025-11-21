@@ -117,11 +117,8 @@ expect {
         send "Y\r"
         exp_continue
     }
-    -re {请选择操作} {
-        puts "未检测到更新提示 → 继续安装"
-    }
     timeout {
-        puts "未检测到更新提示 → 继续安装"
+        puts "未检测到更新提示 → 继续"
     }
 }
 
@@ -129,10 +126,6 @@ expect {
 expect {
     -re {请选择操作} {
         puts "主菜单出现 → 选择 1 (完整安装)"
-        send "1\r"
-    }
-    "*请选择*" {
-        puts "模糊匹配主菜单 → 选择 1"
         send "1\r"
     }
     timeout {
