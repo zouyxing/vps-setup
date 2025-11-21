@@ -34,13 +34,13 @@ FORWARD_STATUS=$(sysctl -n net.ipv4.ip_forward)
 if [ "$FORWARD_STATUS" -eq 0 ]; then
     echo "IP 转发未启用，正在启用..."
     sudo sysctl -w net.ipv4.ip_forward=1
-    
+
     if ! grep -q "^net.ipv4.ip_forward" /etc/sysctl.conf; then
         echo "net.ipv4.ip_forward = 1" | sudo tee -a /etc/sysctl.conf
     else
         sudo sed -i 's/^net.ipv4.ip_forward.*/net.ipv4.ip_forward = 1/' /etc/sysctl.conf
     fi
-    
+
     sudo sysctl -p
     echo "IP 转发已启用并保存"
 else
@@ -106,26 +106,38 @@ expect << 'EOF'
 set timeout 300
 spawn bash /root/Xray-script.sh
 
+# ------------------------------
+# ⭐ 自动检测是否有更新
+# ------------------------------
 expect {
-    "是否更新*" { send "Y\r" }
-    timeout { puts "等待更新提示超时"; exit 1 }
+    "是否更新*" {
+        puts "检测到 Xray 可更新，自动选择 Y"
+        send "Y\r"
+    }
+    timeout {
+        puts "未检测到更新提示，跳过更新步骤"
+    }
 }
 
+# 主菜单
 expect {
     "*请选择操作:*" { send "1\r" }
     timeout { puts "等待主菜单超时"; exit 1 }
 }
 
+# 安装菜单
 expect {
     "*请选择操作:*" { send "2\r" }
     timeout { puts "等待安装流程选择超时"; exit 1 }
 }
 
+# 装载管理
 expect {
     "*请选择操作:*" { send "2\r" }
     timeout { puts "等待装载管理选择超时"; exit 1 }
 }
 
+# 配置菜单
 expect {
     "*请选择操作:*" { send "2\r" }
     timeout { puts "等待配置选择超时"; exit 1 }
@@ -197,4 +209,3 @@ echo "  sudo ufw status          # 查看防火墙状态"
 echo "  sudo iptables -t nat -L  # 查看 NAT 规则"
 echo "  sysctl net.ipv4.ip_forward  # 查看转发状态"
 echo ""
-
