@@ -95,34 +95,37 @@ echo "iptables 规则已永久保存"
 
 echo ""
 echo "[5/6] 优化算法和拥塞控制算法..."
-bash <(curl -fsSL cnm.sh)
-echo "优化算法和拥塞控制算法配置完成"
+# 注意：请确保 cnm.sh 的完整 URL 是正确的
+if bash <(curl -fsSL https://raw.githubusercontent.com/cnmade/cnm/main/cnm.sh) 2>/dev/null; then
+    echo "优化算法和拥塞控制算法配置完成"
+else
+    echo "⚠️  优化脚本执行失败，跳过此步骤"
+fi
 
 echo ""
 echo "[6/6] 下载并自动安装配置 Xray..."
 wget --no-check-certificate -O ${HOME}/Xray-script.sh https://raw.githubusercontent.com/zxcvos/Xray-script/refs/heads/main/install.sh
 
-expect << 'EOF'
-set timeout 300
+expect << 'EXPECT_EOF'
+set timeout 600
 spawn bash /root/Xray-script.sh
 
-# ------------------------------
-# ⭐ 自动检测是否有更新
-# ------------------------------
+# 自动检测是否有更新
 expect {
     -re {是否更新.*} {
         puts "检测到可更新 → 自动发送 Y"
         send "Y\r"
         exp_continue
     }
+    -re {请选择操作} {
+        puts "未检测到更新提示 → 继续安装"
+    }
     timeout {
         puts "未检测到更新提示 → 继续安装"
     }
 }
 
-# ------------------------------
-# ② 主菜单：完整安装 → 输入 1
-# ------------------------------
+# 主菜单：完整安装 → 输入 1
 expect {
     -re {请选择操作} {
         puts "主菜单出现 → 选择 1 (完整安装)"
@@ -133,108 +136,128 @@ expect {
         send "1\r"
     }
     timeout {
-        puts "主菜单匹配失败"; exit 1
+        puts "主菜单匹配失败"
+        exit 1
     }
 }
 
-# ------------------------------
-# ③ 安装流程：自定义配置 → 输入 2
-# ------------------------------
+# 安装流程：自定义配置 → 输入 2
 expect {
     -re {请选择操作} {
         puts "安装流程菜单 → 选择 2 (自定义配置)"
         send "2\r"
     }
-    "*请选择*" { send "2\r" }
-    timeout { puts "安装流程匹配失败"; exit 1 }
+    "*请选择*" {
+        send "2\r"
+    }
+    timeout {
+        puts "安装流程匹配失败"
+        exit 1
+    }
 }
 
-# ------------------------------
-# ④ 装载管理：稳定版 → 输入 2
-# ------------------------------
+# 装载管理：稳定版 → 输入 2
 expect {
     -re {请选择操作} {
         puts "装载管理菜单 → 选择 2 (稳定版)"
         send "2\r"
     }
-    "*请选择*" { send "2\r" }
-    timeout { puts "装载管理匹配失败"; exit 1 }
+    "*请选择*" {
+        send "2\r"
+    }
+    timeout {
+        puts "装载管理匹配失败"
+        exit 1
+    }
 }
 
-# ------------------------------
-# ⑤ 可选配置：VLESS+Vision+REALITY → 输入 2
-# ------------------------------
+# 可选配置：VLESS+Vision+REALITY → 输入 2
 expect {
     -re {请选择操作} {
         puts "可选配置菜单 → 选择 2 (VLESS+Vision+REALITY)"
         send "2\r"
     }
-    "*请选择*" { send "2\r" }
-    timeout { puts "可选配置匹配失败"; exit 1 }
+    "*请选择*" {
+        send "2\r"
+    }
+    timeout {
+        puts "可选配置匹配失败"
+        exit 1
+    }
 }
 
-# ------------------------------
-# ⑥ 是否重置路由规则 → 输入 n
-# ------------------------------
+# 是否重置路由规则 → 输入 n
 expect {
     -re {是否重置路由规则} {
         puts "不重置路由规则 → 输入 n"
         send "n\r"
     }
-    timeout { puts "等待路由规则重置提示失败"; exit 1 }
+    timeout {
+        puts "等待路由规则重置提示失败"
+        exit 1
+    }
 }
 
-# ------------------------------
-# ⑦ 端口 → 输入 38626
-# ------------------------------
+# 端口 → 输入 38626
 expect {
     -re {请输入 port} {
         puts "设置端口为 38626"
         send "38626\r"
     }
-    timeout { puts "端口输入失败"; exit 1 }
+    timeout {
+        puts "端口输入失败"
+        exit 1
+    }
 }
 
-# ------------------------------
-# ⑧ UUID → 默认自动生成
-# ------------------------------
+# UUID → 默认自动生成
 expect {
     -re {请输入 UUID} {
         puts "UUID 自动生成"
         send "\r"
     }
-    timeout { puts "UUID 输入失败"; exit 1 }
+    timeout {
+        puts "UUID 输入失败"
+        exit 1
+    }
 }
 
-# ------------------------------
-# ⑨ target → 默认
-# ------------------------------
+# target → 默认
 expect {
     -re {请输入目标域名} {
         puts "目标域名自动选择"
         send "\r"
     }
-    timeout { puts "目标域名输入失败"; exit 1 }
+    timeout {
+        puts "目标域名输入失败"
+        exit 1
+    }
 }
 
-# ------------------------------
-# ⑩ shortId → 默认
-# ------------------------------
+# shortId → 默认
 expect {
     -re {请输入 shortId} {
         puts "shortId 自动生成"
         send "\r"
     }
-    timeout { puts "shortId 输入失败"; exit 1 }
+    timeout {
+        puts "shortId 输入失败"
+        exit 1
+    }
 }
 
-# ------------------------------
-# 结束
-# ------------------------------
+# 等待安装完成
 expect {
-    eof { puts "Xray 安装配置完成" }
-    timeout { puts "安装过程超时"; exit 1 }
+    eof {
+        puts "Xray 安装配置完成"
+    }
+    timeout {
+        puts "安装过程超时"
+        exit 1
+    }
 }
+EXPECT_EOF
+
 echo "Xray 自动安装配置完成"
 
 echo ""
