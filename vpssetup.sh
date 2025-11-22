@@ -109,7 +109,6 @@ fi
 
 echo ""
 echo "[6/6] 下载并自动安装配置 Xray..."
-wget --no-check-certificate -O ${HOME}/Xray-script.sh https://raw.githubusercontent.com/zxcvos/Xray-script/refs/heads/main/install.sh
 
 # 先检查并卸载旧配置（确保完整配置流程）
 if systemctl is-active --quiet xray 2>/dev/null || [ -f "/usr/local/bin/xray" ]; then
@@ -138,7 +137,6 @@ fi
 echo "等待 2 秒后开始全新安装..."
 sleep 2
 
-# 重新下载脚本
 wget --no-check-certificate -O ${HOME}/Xray-script.sh https://raw.githubusercontent.com/zxcvos/Xray-script/refs/heads/main/install.sh
 
 # 将端口号导出为环境变量供 expect 使用
