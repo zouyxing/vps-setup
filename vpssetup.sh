@@ -122,173 +122,88 @@ spawn bash /root/Xray-script.sh
 # 第一步：处理可能的更新提示
 expect {
     -re {是否更新} {
-        puts "\n>>> 检测到更新提示，发送 Y"
         send "Y\r"
         exp_continue
     }
-    -re {请选择操作} {
-        puts "\n>>> 进入主菜单（无更新提示）"
-    }
+    -re {请选择操作} {}
     timeout {
-        puts "\n>>> 等待菜单超时"
         exit 1
     }
 }
 
 # 第二步：主菜单选择 1（完整安装）
-puts ">>> 发送选项 1 (完整安装)"
 send "1\r"
 
 # 安装流程：自定义配置 → 输入 2
 expect {
-    -re {请选择操作} {
-        puts "安装流程菜单 → 选择 2 (自定义配置)"
-        send "2\r"
-    }
-    "*请选择*" {
-        send "2\r"
-    }
-    timeout {
-        puts "安装流程匹配失败"
-        exit 1
-    }
+    -re {请选择操作} { send "2\r" }
+    timeout { exit 1 }
 }
 
 # 装载管理：稳定版 → 输入 2
 expect {
-    -re {请选择操作} {
-        puts "装载管理菜单 → 选择 2 (稳定版)"
-        send "2\r"
-    }
-    "*请选择*" {
-        send "2\r"
-    }
-    timeout {
-        puts "装载管理匹配失败"
-        exit 1
-    }
+    -re {请选择操作} { send "2\r" }
+    timeout { exit 1 }
 }
 
 # 可选配置：VLESS+Vision+REALITY → 输入 2
 expect {
-    -re {请选择操作} {
-        puts "可选配置菜单 → 选择 2 (VLESS+Vision+REALITY)"
-        send "2\r"
-    }
-    "*请选择*" {
-        send "2\r"
-    }
-    timeout {
-        puts "可选配置匹配失败"
-        exit 1
-    }
+    -re {请选择操作} { send "2\r" }
+    timeout { exit 1 }
 }
 
 # 是否重置路由规则 → 输入 y
 expect {
-    -re {是否重置路由规则} {
-        puts "重置路由规则 → 输入 y"
-        send "y\r"
-    }
-    timeout {
-        puts "等待路由规则重置提示失败"
-        exit 1
-    }
+    -re {是否重置路由规则} { send "y\r" }
+    timeout { exit 1 }
 }
 
 # 是否开启 bittorrent 屏蔽 → 输入 n
 expect {
-    -re {是否开启 bittorrent 屏蔽} {
-        puts "不屏蔽 bittorrent → 输入 n"
-        send "n\r"
-    }
-    timeout {
-        puts "等待 bittorrent 屏蔽提示失败"
-        exit 1
-    }
+    -re {是否开启 bittorrent 屏蔽} { send "n\r" }
+    timeout { exit 1 }
 }
 
 # 是否开启国内 ip 屏蔽 → 输入 n
 expect {
-    -re {是否开启国内 ip 屏蔽} {
-        puts "不屏蔽国内 ip → 输入 n"
-        send "n\r"
-    }
-    timeout {
-        puts "等待国内 ip 屏蔽提示失败"
-        exit 1
-    }
+    -re {是否开启国内 ip 屏蔽} { send "n\r" }
+    timeout { exit 1 }
 }
 
 # 是否开启广告屏蔽 → 输入 Y
 expect {
-    -re {是否开启广告屏蔽|广告屏蔽} {
-        puts "开启广告屏蔽 → 输入 Y"
-        send "Y\r"
-    }
-    timeout {
-        puts "等待广告屏蔽提示失败"
-        exit 1
-    }
+    -re {是否开启广告屏蔽|广告屏蔽} { send "Y\r" }
+    timeout { exit 1 }
 }
 
 # 端口 → 使用随机生成的端口
 expect {
-    -re {请输入 port} {
-        puts "设置端口为 $env(RANDOM_PORT)"
-        send "$env(RANDOM_PORT)\r"
-    }
-    timeout {
-        puts "端口输入失败"
-        exit 1
-    }
+    -re {请输入 port} { send "$env(RANDOM_PORT)\r" }
+    timeout { exit 1 }
 }
 
 # UUID → 默认自动生成
 expect {
-    -re {请输入 UUID} {
-        puts "UUID 自动生成"
-        send "\r"
-    }
-    timeout {
-        puts "UUID 输入失败"
-        exit 1
-    }
+    -re {请输入 UUID} { send "\r" }
+    timeout { exit 1 }
 }
 
 # target → 默认
 expect {
-    -re {请输入目标域名} {
-        puts "目标域名自动选择"
-        send "\r"
-    }
-    timeout {
-        puts "目标域名输入失败"
-        exit 1
-    }
+    -re {请输入目标域名} { send "\r" }
+    timeout { exit 1 }
 }
 
 # shortId → 默认
 expect {
-    -re {请输入 shortId} {
-        puts "shortId 自动生成"
-        send "\r"
-    }
-    timeout {
-        puts "shortId 输入失败"
-        exit 1
-    }
+    -re {请输入 shortId} { send "\r" }
+    timeout { exit 1 }
 }
 
 # 等待安装完成
 expect {
-    eof {
-        puts "Xray 安装配置完成"
-    }
-    timeout {
-        puts "安装过程超时"
-        exit 1
-    }
+    eof {}
+    timeout { exit 1 }
 }
 EXPECT_EOF
 
