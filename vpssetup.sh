@@ -117,7 +117,6 @@ export RANDOM_PORT
 expect << 'EXPECT_EOF'
 set timeout 600
 log_user 1
-exp_internal 1
 spawn bash /root/Xray-script.sh
 
 # 第一步：处理可能的更新提示
