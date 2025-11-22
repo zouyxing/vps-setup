@@ -185,19 +185,26 @@ expect {
     timeout { exit 1 }
 }
 
+# 增加等待时间，确保输出完整显示
+sleep 1
+
 # 处理路由规则配置（可能出现也可能不出现）并等待 bittorrent
 expect {
     -re {是否重置路由规则} {
         send "y\r"
         # 继续等待 bittorrent
         expect {
-            -re {是否开启 bittorrent 屏蔽} { send "n\r" }
+            -re {是否开启 bittorrent 屏蔽|bittorrent 屏蔽} { send "n\r" }
             timeout { exit 1 }
         }
     }
-    -re {是否开启 bittorrent 屏蔽} {
+    -re {是否开启 bittorrent 屏蔽|bittorrent 屏蔽} {
         # 没有路由规则提示，直接处理 bittorrent
         send "n\r"
+    }
+    -re {配置原文件存在} {
+        # 看到配置文件存在的提示，继续等待 bittorrent
+        exp_continue
     }
     timeout { exit 1 }
 }
