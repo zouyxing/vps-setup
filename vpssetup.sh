@@ -185,15 +185,20 @@ expect {
     timeout { exit 1 }
 }
 
-# 是否重置路由规则 → 输入 y (现在应该会出现这个提示)
+# 处理路由规则配置（可能出现也可能不出现）并等待 bittorrent
 expect {
-    -re {是否重置路由规则} { send "y\r" }
-    timeout { exit 1 }
-}
-
-# 是否开启 bittorrent 屏蔽 → 输入 n
-expect {
-    -re {是否开启 bittorrent 屏蔽} { send "n\r" }
+    -re {是否重置路由规则} {
+        send "y\r"
+        # 继续等待 bittorrent
+        expect {
+            -re {是否开启 bittorrent 屏蔽} { send "n\r" }
+            timeout { exit 1 }
+        }
+    }
+    -re {是否开启 bittorrent 屏蔽} {
+        # 没有路由规则提示，直接处理 bittorrent
+        send "n\r"
+    }
     timeout { exit 1 }
 }
 
