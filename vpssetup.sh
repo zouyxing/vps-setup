@@ -109,6 +109,13 @@ fi
 
 echo ""
 echo "[6/6] 下载并自动安装配置 Xray..."
+
+# 如果需要重置路由规则，先删除配置文件
+if [ -f "/usr/local/xray-script/config/xray/Vision.json" ]; then
+    echo "检测到现有配置文件，删除以启用完整配置流程..."
+    rm -f /usr/local/xray-script/config/xray/Vision.json
+fi
+
 wget --no-check-certificate -O ${HOME}/Xray-script.sh https://raw.githubusercontent.com/zxcvos/Xray-script/refs/heads/main/install.sh
 
 # 将端口号导出为环境变量供 expect 使用
