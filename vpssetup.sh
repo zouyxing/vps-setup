@@ -119,9 +119,12 @@ set timeout 600
 log_user 1
 spawn bash /root/Xray-script.sh
 
-# 语言选择：中文 → 输入 1
+# 等待脚本启动完成
+sleep 2
+
+# 第一步：处理语言选择和更新提示
 expect {
-    -re {请选择你的语言|选择你的语言|请选择语言} {
+    -re {中文.*English} {
         send "1\r"
         exp_continue
     }
