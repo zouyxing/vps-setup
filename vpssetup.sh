@@ -268,8 +268,9 @@ echo ""
 echo "🔐 使用的端口: ${RANDOM_PORT}"
 echo ""
 echo "请使用以下命令检查状态："
-echo "  sudo ufw status          # 查看防火墙状态"
-echo "  sudo iptables -t nat -L  # 查看 NAT 规则"
+echo "  sudo ufw status             # 查看防火墙状态"
+echo "  sudo iptables -t nat -L     # 查看 NAT 规则"
 echo "  sysctl net.ipv4.ip_forward  # 查看转发状态"
 echo ""
+
 
