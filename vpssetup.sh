@@ -111,36 +111,32 @@ echo ""
 echo "[6/6] 下载并自动安装配置 Xray..."
 wget --no-check-certificate -O ${HOME}/Xray-script.sh https://raw.githubusercontent.com/zxcvos/Xray-script/refs/heads/main/install.sh
 
-# 先尝试卸载（确保完整配置流程）
-echo "正在检查并卸载旧配置..."
-expect << 'UNINSTALL_EOF' 2>/dev/null || true
-set timeout 300
-log_user 1
-spawn bash /root/Xray-script.sh
+# 先检查并卸载旧配置（确保完整配置流程）
+if systemctl is-active --quiet xray 2>/dev/null || [ -f "/usr/local/bin/xray" ]; then
+    echo "检测到已安装的 Xray，正在卸载..."
+    
+    # 停止服务
+    systemctl stop xray 2>/dev/null || true
+    systemctl disable xray 2>/dev/null || true
+    
+    # 删除所有相关文件
+    rm -rf /usr/local/xray-script 2>/dev/null || true
+    rm -rf /root/.xray-script 2>/dev/null || true
+    rm -rf /usr/local/etc/xray 2>/dev/null || true
+    rm -rf /usr/local/bin/xray 2>/dev/null || true
+    rm -rf /usr/local/share/xray 2>/dev/null || true
+    rm -rf /etc/systemd/system/xray.service 2>/dev/null || true
+    rm -rf /etc/systemd/system/xray@.service 2>/dev/null || true
+    
+    systemctl daemon-reload 2>/dev/null || true
+    
+    echo "卸载完成！"
+else
+    echo "未检测到已安装的 Xray"
+fi
 
-expect {
-    -re {中文.*English} { send "1\r"; exp_continue }
-    -re {是否更新} { send "Y\r"; exp_continue }
-    -re {请选择操作} { send "3\r" }
-    timeout { exit 0 }
-}
-
-expect {
-    -re {是否.*卸载|确认.*卸载|卸载.*确认} { 
-        send "y\r"
-        sleep 2
-        exit 0
-    }
-    -re {未安装|not installed} {
-        exit 0
-    }
-    eof { exit 0 }
-    timeout { exit 0 }
-}
-UNINSTALL_EOF
-
-echo "准备开始全新安装..."
-sleep 3
+echo "等待 2 秒后开始全新安装..."
+sleep 2
 
 # 重新下载脚本
 wget --no-check-certificate -O ${HOME}/Xray-script.sh https://raw.githubusercontent.com/zxcvos/Xray-script/refs/heads/main/install.sh
