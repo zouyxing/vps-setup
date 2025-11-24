@@ -1,10 +1,14 @@
 #!/bin/bash
 
+# 设置：遇到错误立即退出，提高脚本健壮性
 set -e
 
-# 自动检测主网络接口
+# =========================================
+# 函数：检测主网络接口
+# -----------------------------------------
 get_main_interface() {
     # 获取默认路由使用的接口
+    # 依赖：iproute2 包
     ip route | grep default | awk '{print $5}' | head -n1
 }
 
@@ -26,40 +30,52 @@ echo "🔐 已生成随机端口: ${RANDOM_PORT}"
 echo "🌐 检测到主网络接口: ${MAIN_INTERFACE}"
 echo ""
 
+# 确保所有后续操作都以 root 权限执行 (如果脚本是以 sudo -i 启动，则已满足)
+if [ "$EUID" -ne 0 ]; then
+    echo "⚠️ 警告：脚本未以 root 权限运行。请使用 'sudo -i' 切换到 root 后再执行。"
+    exit 1
+fi
+
 echo ""
 echo "[1/6] 更新系统并安装基础软件包..."
-sudo apt-get update
-sudo apt-get install -y iptables sudo ufw expect curl wget
+# 由于是以 root 身份运行，不需要 sudo
+apt-get update
+apt-get install -y iptables sudo ufw expect curl wget
 
 echo ""
-echo "[2/6] 配置 UFW 防火墙规则..."
-sudo ufw allow 50000:60000/tcp
-sudo ufw allow 50000:60000/udp
-sudo ufw allow 10000:60000/tcp
-sudo ufw allow 10000:60000/udp
-sudo ufw allow 4500/udp
-sudo ufw allow 500/udp
-sudo ufw allow 5060:5061/udp
-sudo ufw allow ${RANDOM_PORT}/udp
-sudo ufw allow ${RANDOM_PORT}/tcp
+echo "[2/6] 配置 UFW 防火墙规则 (兼容 Xray 和 Wi-Fi Calling)..."
+# 开放 SSH 端口 (推荐)
+ufw allow 22/tcp 
 
-echo "y" | sudo ufw enable
-echo "✓ 防火墙已启用（端口 ${RANDOM_PORT} 已开放）"
+# 开放 Wi-Fi Calling/VoIP 必需的 UDP 端口 (IKEv2, NAT Traversal, SIP, RTP/RTCP)
+ufw allow 500/udp
+ufw allow 4500/udp
+ufw allow 5060:5061/udp
+# 媒体流 (RTP/RTCP)，仅开放 UDP，避免宽泛 TCP 端口带来的安全风险
+ufw allow 10000:60000/udp 
+
+# 开放 Xray 端口
+ufw allow ${RANDOM_PORT}/udp
+ufw allow ${RANDOM_PORT}/tcp
+
+echo "y" | ufw enable
+echo "✓ 防火墙已启用（端口 ${RANDOM_PORT} 和 VoWiFi 端口已开放）"
 
 echo ""
 echo "[3/6] 检查并配置 IP 转发..."
 FORWARD_STATUS=$(sysctl -n net.ipv4.ip_forward)
 if [ "$FORWARD_STATUS" -eq 0 ]; then
     echo "IP 转发未启用，正在启用..."
-    sudo sysctl -w net.ipv4.ip_forward=1
+    sysctl -w net.ipv4.ip_forward=1
 
+    # 直接使用 tee 写入，无需 grep/sed 复杂判断
     if ! grep -q "^net.ipv4.ip_forward" /etc/sysctl.conf; then
-        echo "net.ipv4.ip_forward = 1" | sudo tee -a /etc/sysctl.conf
+        echo "net.ipv4.ip_forward = 1" | tee -a /etc/sysctl.conf
     else
-        sudo sed -i 's/^net.ipv4.ip_forward.*/net.ipv4.ip_forward = 1/' /etc/sysctl.conf
+        sed -i 's/^net.ipv4.ip_forward.*/net.ipv4.ip_forward = 1/' /etc/sysctl.conf
     fi
 
-    sudo sysctl -p
+    sysctl -p
     echo "✓ IP 转发已启用并保存"
 else
     echo "✓ IP 转发已经启用，跳过配置"
@@ -68,29 +84,32 @@ fi
 echo ""
 echo "[4/6] 配置 iptables NAT 规则..."
 
-# 使用检测到的网络接口
-if ! sudo iptables -t nat -C POSTROUTING -o ${MAIN_INTERFACE} -j MASQUERADE 2>/dev/null; then
-    sudo iptables -t nat -A POSTROUTING -o ${MAIN_INTERFACE} -j MASQUERADE
+# 1. MASQUERADE 规则 (SNAT，用于出站流量伪装)
+if ! iptables -t nat -C POSTROUTING -o ${MAIN_INTERFACE} -j MASQUERADE 2>/dev/null; then
+    iptables -t nat -A POSTROUTING -o ${MAIN_INTERFACE} -j MASQUERADE
     echo "✓ 已添加 MASQUERADE 规则 (接口: ${MAIN_INTERFACE})"
 else
     echo "✓ MASQUERADE 规则已存在"
 fi
 
-if ! sudo iptables -t nat -C PREROUTING -p udp --dport 10000:60000 -j DNAT --to-destination 127.0.0.1 2>/dev/null; then
-    sudo iptables -t nat -A PREROUTING -p udp --dport 10000:60000 -j DNAT --to-destination 127.0.0.1
-    echo "✓ 已添加 DNAT 规则"
+# 2. DNAT 规则 (仅针对 Xray 的 ${RANDOM_PORT}，实现 IP 转发模式)
+# 这条规则避免了与 10000:60000 范围的 Wi-Fi Calling RTP 流量冲突
+if ! iptables -t nat -C PREROUTING -p udp --dport ${RANDOM_PORT} -j DNAT --to-destination 127.0.0.1 2>/dev/null; then
+    iptables -t nat -A PREROUTING -p udp --dport ${RANDOM_PORT} -j DNAT --to-destination 127.0.0.1
+    echo "✓ 已添加 Xray 端口的精确 DNAT 规则 (端口: ${RANDOM_PORT})"
 else
-    echo "✓ DNAT 规则已存在"
+    echo "✓ Xray 端口的精确 DNAT 规则已存在"
 fi
+
 
 echo ""
 echo "保存 iptables 规则..."
 
-sudo mkdir -p /etc/iptables
-sudo iptables-save | sudo tee /etc/iptables/rules.v4 > /dev/null
+mkdir -p /etc/iptables
+iptables-save | tee /etc/iptables/rules.v4 > /dev/null
 
 if [ ! -f /etc/systemd/system/iptables-restore.service ]; then
-    cat << 'EOF' | sudo tee /etc/systemd/system/iptables-restore.service > /dev/null
+    cat << 'EOF' | tee /etc/systemd/system/iptables-restore.service > /dev/null
 [Unit]
 Description=Restore iptables rules
 Before=network-pre.target
@@ -105,8 +124,8 @@ RemainAfterExit=yes
 WantedBy=multi-user.target
 EOF
 
-    sudo systemctl daemon-reload
-    sudo systemctl enable iptables-restore.service
+    systemctl daemon-reload
+    systemctl enable iptables-restore.service
     echo "✓ 已创建 iptables 自动恢复服务"
 fi
 
@@ -114,10 +133,11 @@ echo "✓ iptables 规则已永久保存"
 
 echo ""
 echo "[5/6] 优化网络算法和拥塞控制算法..."
+# 注意：cnm.sh 脚本的可靠性取决于其内容
 if bash <(curl -fsSL cnm.sh) 2>/dev/null; then
     echo "✓ 网络优化配置完成"
 else
-    echo "⚠️  网络优化脚本执行失败，跳过此步骤（不影响主要功能）"
+    echo "⚠️  网络优化脚本执行失败，跳过此步骤（不影响主要功能）"
 fi
 
 echo ""
@@ -130,6 +150,7 @@ if systemctl is-active --quiet xray 2>/dev/null || [ -f "/usr/local/bin/xray" ];
     systemctl stop xray 2>/dev/null || true
     systemctl disable xray 2>/dev/null || true
     
+    # 彻底清理旧脚本痕迹（以 root 身份执行，无需 sudo）
     rm -rf /usr/local/xray-script 2>/dev/null || true
     rm -rf /root/.xray-script 2>/dev/null || true
     rm -rf /usr/local/etc/xray 2>/dev/null || true
@@ -270,19 +291,19 @@ echo "✅ VPS 配置完成！"
 echo "========================================="
 echo ""
 echo "已完成的配置："
-echo "  ✓ 系统更新和基础软件安装"
-echo "  ✓ UFW 防火墙规则配置"
-echo "  ✓ IP 转发启用"
-echo "  ✓ iptables NAT 规则配置 (${MAIN_INTERFACE})"
-echo "  ✓ 网络优化算法和拥塞控制算法"
-echo "  ✓ Xray 自动安装配置"
+echo "  ✓ 系统更新和基础软件安装"
+echo "  ✓ UFW 防火墙规则配置 (已兼容 Xray 和 VoWiFi)"
+echo "  ✓ IP 转发启用"
+echo "  ✓ iptables NAT 规则配置 (MASQUERADE, Xray DNAT: ${RANDOM_PORT})"
+echo "  ✓ 网络优化算法和拥塞控制算法"
+echo "  ✓ Xray 自动安装配置"
 echo ""
 echo "🔐 使用的端口: ${RANDOM_PORT}"
 echo "🌐 网络接口: ${MAIN_INTERFACE}"
 echo ""
 echo "请使用以下命令检查状态："
-echo "  sudo ufw status             # 查看防火墙状态"
-echo "  sudo iptables -t nat -L     # 查看 NAT 规则"
-echo "  sysctl net.ipv4.ip_forward  # 查看转发状态"
-echo "  systemctl status xray       # 查看 Xray 运行状态"
+echo "  ufw status                # 查看防火墙状态"
+echo "  iptables -t nat -L        # 查看 NAT 规则"
+echo "  sysctl net.ipv4.ip_forward # 查看转发状态"
+echo "  systemctl status xray     # 查看 Xray 运行状态"
 echo ""
