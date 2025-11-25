@@ -29,6 +29,7 @@ get_main_interface() {
 # =========================================
 PACKAGE_MANAGER=$(detect_distro)
 MAIN_INTERFACE=$(get_main_interface)
+# 生成随机端口（30000-65000）
 RANDOM_PORT=$((30000 + RANDOM % 35001))
 
 if [ "$PACKAGE_MANAGER" = "unknown" ]; then
@@ -68,13 +69,13 @@ elif [ "$PACKAGE_MANAGER" = "apk" ]; then
     # Alpine Linux
     apk update
     # Alpine 包名差异: iptables, ufw, expect, iproute2 是必要的
-    apk add iptables ufw expect curl wget iproute2 openrc # 确保 OpenRC 服务命令可用
+    apk add iptables ufw expect curl wget iproute2 openrc
 fi
 
 echo "✓ 基础软件包安装完成"
 
 echo ""
-echo "[2/6] 配置 UFW 防火墙规则 (兼容 Xray 和 Wi-Fi Calling)..."
+echo "[2/6] 配置 UFW 防火墙规则 (兼容 Xray/Sing-Box 和 Wi-Fi Calling)..."
 # --- 强制清空所有现有 UFW 规则 ---
 echo "⚠️ 正在强制删除所有现有 UFW 规则..."
 ufw --force reset
@@ -84,7 +85,7 @@ echo "✓ UFW 规则已清空"
 # 开放 SSH 端口 (推荐)
 ufw allow 22/tcp 
 
-# 开放 Wi-Fi Calling/VoIP 必需的 UDP 端口 (IKEv2, NAT Traversal, SIP, RTP/RTCP)
+# 开放 Wi-Fi Calling/VoIP 必需的 UDP 端口
 ufw allow 500/udp
 ufw allow 4500/udp
 ufw allow 5060:5061/udp
@@ -135,12 +136,12 @@ else
     echo "✓ MASQUERADE 规则已存在"
 fi
 
-# 2. DNAT 规则 (仅针对 Xray/Sing-Box 的 ${RANDOM_PORT}，实现 IP 转发模式)
+# 2. DNAT 规则 (仅针对代理端口 ${RANDOM_PORT}，实现 IP 转发模式)
 if ! iptables -t nat -C PREROUTING -p udp --dport ${RANDOM_PORT} -j DNAT --to-destination 127.0.0.1 2>/dev/null; then
     iptables -t nat -A PREROUTING -p udp --dport ${RANDOM_PORT} -j DNAT --to-destination 127.0.0.1
-    echo "✓ 已添加 Xray/Sing-Box 端口的精确 DNAT 规则 (端口: ${RANDOM_PORT})"
+    echo "✓ 已添加代理端口的精确 DNAT 规则 (端口: ${RANDOM_PORT})"
 else
-    echo "✓ Xray/Sing-Box 端口的精确 DNAT 规则已存在"
+    echo "✓ 代理端口的精确 DNAT 规则已存在"
 fi
 
 
@@ -173,7 +174,6 @@ EOF
         echo "✓ 已创建 iptables 自动恢复服务 (SystemD)"
     fi
 else
-    # 针对非 SystemD 系统 (如 Alpine with OpenRC)，提示用户手动配置
     echo "⚠️ 非 SystemD 系统：请确保您的 init 系统已配置 iptables 规则的开机自动加载。"
 fi
 
@@ -207,4 +207,208 @@ if [ "$PACKAGE_MANAGER" = "apt" ]; then
         
         # 彻底清理旧脚本痕迹
         rm -rf /usr/local/xray-script 2>/dev/null || true
-        rm
+        rm -rf /root/.xray-script 2>/dev/null || true
+        rm -rf /usr/local/etc/xray 2>/dev/null || true
+        rm -rf /usr/local/bin/xray 2>/dev/null || true
+        rm -rf /usr/local/share/xray 2>/dev/null || true
+        rm -rf /etc/systemd/system/xray.service 2>/dev/null || true
+        rm -rf /etc/systemd/system/xray@.service 2>/dev/null || true
+        
+        systemctl daemon-reload 2>/dev/null || true
+        
+        echo "✓ 卸载完成！"
+    else
+        echo "未检测到已安装的 Xray"
+    fi
+
+    echo "等待 2 秒后开始全新安装..."
+    sleep 2
+
+    # 使用 wget 下载 Xray 脚本
+    wget --no-check-certificate -O ${HOME}/Xray-script.sh https://raw.githubusercontent.com/zxcvos/Xray-script/refs/heads/main/install.sh
+
+    # 添加执行权限
+    chmod +x ${HOME}/Xray-script.sh
+
+    # 将端口号和脚本路径导出为环境变量供 expect 使用
+    export RANDOM_PORT
+    export SCRIPT_PATH="${HOME}/Xray-script.sh"
+
+    # ==========================================================
+    # EXPECT 自动化安装流程 (请确保 EXPECT_EOF 严格贴行首)
+    # ==========================================================
+    expect << 'EXPECT_EOF'
+set timeout 600
+log_user 1
+spawn bash $env(SCRIPT_PATH)
+
+sleep 2
+
+# 第一步：处理语言选择和更新提示
+expect {
+    -re {中文.*English} {
+        send "1\r"
+        exp_continue
+    }
+    -re {是否更新} {
+        send "Y\r"
+        exp_continue
+    }
+    -re {请选择操作} {}
+    timeout { exit 1 }
+}
+
+# 第二步：主菜单选择 1（完整安装）
+send "1\r"
+
+# 安装流程：自定义配置 → 输入 2
+expect {
+    -re {请选择操作} { send "2\r" }
+    timeout { exit 1 }
+}
+
+# 装载管理：稳定版 → 输入 2
+expect {
+    -re {请选择操作} { send "2\r" }
+    timeout { exit 1 }
+}
+
+# 可选配置：VLESS+Vision+REALITY → 输入 2
+expect {
+    -re {请选择操作} { send "2\r" }
+    timeout { exit 1 }
+}
+
+sleep 1
+
+# 处理路由规则配置并等待 bittorrent
+expect {
+    -re {是否重置路由规则} {
+        send "y\r"
+        expect {
+            -re {是否开启 bittorrent 屏蔽|bittorrent 屏蔽} { send "n\r" }
+            timeout { exit 1 }
+        }
+    }
+    -re {是否开启 bittorrent 屏蔽|bittorrent 屏蔽} {
+        send "n\r"
+    }
+    -re {配置原文件存在} {
+        exp_continue
+    }
+    timeout { exit 1 }
+}
+
+# 是否开启国内 ip 屏蔽 → 输入 n
+expect {
+    -re {是否开启国内 ip 屏蔽} { send "n\r" }
+    timeout { exit 1 }
+}
+
+# 是否开启广告屏蔽 → 输入 Y
+expect {
+    -re {是否开启广告屏蔽|广告屏蔽} { send "Y\r" }
+    timeout { exit 1 }
+}
+
+# 端口 → 使用随机生成的端口
+expect {
+    -re {请输入 port} { send "$env(RANDOM_PORT)\r" }
+    timeout { exit 1 }
+}
+
+# UUID → 默认自动生成
+expect {
+    -re {请输入 UUID} { send "\r" }
+    timeout { exit 1 }
+}
+
+# target → 默认
+expect {
+    -re {请输入目标域名} { send "\r" }
+    timeout { exit 1 }
+}
+
+# shortId → 默认
+expect {
+    -re {请输入 shortId} { send "\r" }
+    timeout { exit 1 }
+}
+
+# 等待安装完成
+expect {
+    eof {}
+    timeout { exit 1 }
+}
+EXPECT_EOF
+
+echo "✓ Xray 自动安装配置完成"
+
+# =================================================================
+# Alpine (apk) 使用 Sing-Box 脚本
+# =================================================================
+elif [ "$PACKAGE_MANAGER" = "apk" ]; then
+    echo "⚙️  检测到 Alpine，准备安装 Sing-Box..."
+    
+    # --- 强制清理现有 Sing-Box 安装 ---
+    echo "⚠️ 正在强制停止、卸载并清理现有 Sing-Box 服务和文件..."
+    # 停止服务 (OpenRC)
+    rc-service sing-box stop 2>/dev/null || true
+    # 禁用服务 (OpenRC)
+    rc-update del sing-box 2>/dev/null || true
+    # 卸载包 (如果通过 apk 安装)
+    apk del sing-box 2>/dev/null || true
+    # 清理遗留文件和配置
+    rm -f /usr/local/bin/sing-box /etc/init.d/sing-box
+    rm -rf /etc/sing-box /usr/share/sing-box /var/log/sing-box
+    echo "✓ Sing-Box 旧配置清理完成。"
+    # ------------------------------------------
+
+    # 执行 Sing-Box 脚本
+    export RANDOM_PORT # 导出端口号
+    if curl -fsSL https://raw.githubusercontent.com/imengying/sing-box/refs/heads/main/sing-box-alpine.sh | bash; then
+        echo "✓ Sing-Box 自动安装配置完成"
+    else
+        echo "❌ 警告：Sing-Box 安装脚本执行失败或需要手动配置端口。请检查日志。"
+    fi
+fi
+
+# =================================================================
+# 脚本总结
+# =================================================================
+
+echo ""
+echo "========================================="
+echo "✅ VPS 配置完成！"
+echo "========================================="
+echo ""
+echo "已完成的配置："
+echo "  ✓ 系统更新和基础软件安装 (兼容 ${PACKAGE_MANAGER})"
+echo "  ✓ UFW 防火墙规则配置 (已清空旧规则，并兼容 Xray/Sing-Box 和 VoWiFi)"
+echo "  ✓ IP 转发启用"
+echo "  ✓ iptables NAT 规则配置 (已清空旧规则，并配置 MASQUERADE, 代理端口: ${RANDOM_PORT})"
+if [ "$PACKAGE_MANAGER" = "apt" ]; then
+    echo "  ✓ 代理软件: Xray (VLESS+Vision+REALITY)"
+elif [ "$PACKAGE_MANAGER" = "apk" ]; then
+    echo "  ✓ 代理软件: Sing-Box (Alpine)"
+fi
+echo "  ✓ 网络优化算法和拥塞控制算法"
+echo ""
+echo "🔐 使用的端口: ${RANDOM_PORT}"
+echo "🌐 网络接口: ${MAIN_INTERFACE}"
+echo ""
+echo "请使用以下命令检查状态："
+echo "  ufw status                    # 查看防火墙状态"
+echo "  iptables -t nat -L            # 查看 NAT 规则"
+echo "  sysctl net.ipv4.ip_forward    # 查看转发状态"
+# 针对不同系统的服务状态检查提示
+if command -v systemctl &> /dev/null; then
+    SERVICE_NAME="xray"
+    if [ "$PACKAGE_MANAGER" = "apk" ]; then
+        SERVICE_NAME="sing-box" 
+    fi
+    echo "  systemctl status ${SERVICE_NAME}         # 查看 ${SERVICE_NAME} 运行状态 (SystemD)"
+else
+    echo "  rc-service sing-box status 或 service sing-box status # 查看 Sing-Box 运行状态 (非SystemD)"
+fi
+echo ""
