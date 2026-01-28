@@ -169,7 +169,7 @@ fi
 echo "等待 2 秒后开始全新安装..."
 sleep 2
 
-wget --no-check-certificate -O ${HOME}/Xray-script.sh https://raw.githubusercontent.com/zxcvos/Xray-script/refs/heads/main/install.sh
+wget --no-check-certificate -O ${HOME}/Xray-script.sh https://raw.githubusercontent.com/zouyxing/Xray-script/refs/heads/main/install.sh
 
 # 添加执行权限
 chmod +x ${HOME}/Xray-script.sh
@@ -307,3 +307,4 @@ echo "  iptables -t nat -L        # 查看 NAT 规则"
 echo "  sysctl net.ipv4.ip_forward # 查看转发状态"
 echo "  systemctl status xray     # 查看 Xray 运行状态"
 echo ""
+
