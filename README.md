@@ -18,17 +18,25 @@ curl -fsSL https://raw.githubusercontent.com/zouyxing/vps-setup/refs/heads/main/
 
 只有IPV6的vps
 
+```bash
 curl -fsSL https://raw.githubusercontent.com/zouyxing/vps-setup/refs/heads/main/vps-ip6.sh | tr -d '\r' | bash
+```
 
-带开放443,80,25端口的vps
+需要开放443,80,25端口自建mail的vps
 
+```bash
 curl -fsSL https://raw.githubusercontent.com/zouyxing/vps-setup/refs/heads/main/vps-mail.sh | tr -d '\r' | bash
+```
 
 lxc容器的
 
+```bash
 curl -fsSL https://raw.githubusercontent.com/zouyxing/vps-setup/refs/heads/main/lxc-wificall.sh | tr -d '\r' | bash
+```
 
 Alping系统
 
+```bash
 curl -fsSL https://raw.githubusercontent.com/zouyxing/vps-setup/refs/heads/main/lxc-wificall.sh | tr -d '\r' | bash
+```
 
