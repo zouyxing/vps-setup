@@ -28,13 +28,13 @@ curl -fsSL https://raw.githubusercontent.com/zouyxing/vps-setup/refs/heads/main/
 curl -fsSL https://raw.githubusercontent.com/zouyxing/vps-setup/refs/heads/main/vps-mail.sh | tr -d '\r' | bash
 ```
 
-lxc容器的
+lxc容器
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/zouyxing/vps-setup/refs/heads/main/lxc-wificall.sh | tr -d '\r' | bash
 ```
 
-Alping系统
+Alpine系统
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/zouyxing/vps-setup/refs/heads/main/lxc-wificall.sh | tr -d '\r' | bash
