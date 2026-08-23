@@ -12,7 +12,9 @@
 
 debian+Ubuntu
 
+```bash
 curl -fsSL https://raw.githubusercontent.com/zouyxing/vps-setup/refs/heads/main/vps-one.sh | tr -d '\r' | bash
+```
 
 只有IPV6的vps
 
