@@ -17,8 +17,8 @@ if [ -z "$MAIN_INTERFACE" ]; then
     exit 1
 fi
 
-# 生成随机端口（30000-65000）用于 Xray
-RANDOM_PORT=$((30000 + RANDOM % 35001))
+# 生成随机端口（40000-65000）用于 Xray
+RANDOM_PORT=$((40000 + RANDOM % 35001))
 
 echo "========================================="
 echo "开始执行 VPS 自动配置脚本 (默认 SSH)"
