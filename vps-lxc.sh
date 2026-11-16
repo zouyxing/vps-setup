@@ -6,7 +6,6 @@ set -e
 # =========================================
 # 配置变量
 # -----------------------------------------
-# 函数：检测主网络接口
 get_main_interface() {
     ip route | grep default | awk '{print $5}' | head -n1
 }
@@ -30,7 +29,6 @@ echo "🔒 SSH 端口: 保持系统默认 (22)"
 echo "🌐 检测到主网络接口: ${MAIN_INTERFACE}"
 echo ""
 
-# 确保所有后续操作都以 root 权限执行
 if [ "$EUID" -ne 0 ]; then
     echo "⚠️ 警告：脚本未以 root 权限运行。请使用 'sudo -i' 切换到 root 后再执行。"
     exit 1
@@ -43,8 +41,7 @@ echo "[1/6] 更新系统并安装基础软件包..."
 # -----------------------------------------
 APT_LOCK="/var/lib/dpkg/lock-frontend"
 if [ -f "$APT_LOCK" ]; then
-    echo "⚠️ 检测到 APT 锁文件，可能由后台进程持有。"
-    echo "    尝试强制清理锁并修复数据库..."
+    echo "⚠️ 检测到 APT 锁文件，尝试清理锁并修复数据库..."
     killall -9 apt-get || true
     killall -9 dpkg || true
     rm -f /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock /var/cache/apt/archives/lock || true
@@ -54,12 +51,10 @@ fi
 # =========================================
 
 apt-get update
-# 新增 unzip、jq、uuid-runtime 等 Xray 脚本核心依赖
 apt-get install -y iptables sudo ufw expect curl wget iproute2 net-tools unzip jq uuid-runtime
 
 echo ""
 echo "[2/6] 配置 UFW 防火墙规则 (兼容 Xray, VoWiFi)..."
-# 兼容 LXD 非特权容器（无权限修改内核防火墙时自动跳过，避免触发 set -e 退出）
 if ufw status >/dev/null 2>&1; then
     ufw allow 22/tcp comment 'Default SSH Port' || true
     ufw allow 500/udp || true
@@ -147,32 +142,23 @@ else
 fi
 
 echo ""
-echo "[6/6] 下载并自动安装配置 Xray..."
+echo "[6/6] 清理旧环境、下载 Xray 核心并自动安装配置..."
 
-# 检查并卸载旧配置
-if systemctl is-active --quiet xray 2>/dev/null || [ -f "/usr/local/bin/xray" ]; then
-    echo "检测到已安装的 Xray，正在卸载..."
-    systemctl stop xray 2>/dev/null || true
-    systemctl disable xray 2>/dev/null || true
-    
-    rm -rf /usr/local/xray-script 2>/dev/null || true
-    rm -rf /root/.xray-script 2>/dev/null || true
-    rm -rf /usr/local/etc/xray 2>/dev/null || true
-    rm -rf /usr/local/bin/xray 2>/dev/null || true
-    rm -rf /usr/local/share/xray 2>/dev/null || true
-    rm -rf /etc/systemd/system/xray.service 2>/dev/null || true
-    rm -rf /etc/systemd/system/xray@.service 2>/dev/null || true
-    
-    systemctl daemon-reload 2>/dev/null || true
-    echo "✓ 卸载完成！"
-else
-    echo "未检测到已安装的 Xray"
-fi
+# 1. 停止服务并彻底删除旧目录 (/usr/local/etc/xray 等)
+systemctl stop xray 2>/dev/null || true
+systemctl disable xray 2>/dev/null || true
 
-# =========================================
-# 新增：预下载最新版 Xray 核心并解压部署
-# -----------------------------------------
-echo "正在获取系统架构并下载最新版 Xray 核心..."
+rm -rf /usr/local/etc/xray
+rm -rf /usr/local/xray-script
+rm -rf /root/.xray-script
+rm -rf /usr/local/bin/xray
+rm -rf /usr/local/share/xray
+rm -rf /etc/systemd/system/xray.service
+rm -rf /etc/systemd/system/xray@.service
+systemctl daemon-reload 2>/dev/null || true
+echo "✓ 旧环境与 /usr/local/etc/xray 已清理"
+
+# 2. 下载最新版 Xray 核心并解压部署
 ARCH=$(uname -m)
 case "$ARCH" in
     x86_64)
@@ -188,7 +174,7 @@ case "$ARCH" in
 esac
 
 XRAY_URL="https://github.com/XTLS/Xray-core/releases/latest/download/${XRAY_ZIP}"
-echo "下载地址: ${XRAY_URL}"
+echo "正在下载最新版 Xray 核心: ${XRAY_URL}"
 
 curl -fL --retry 3 -o "/tmp/${XRAY_ZIP}" "${XRAY_URL}"
 mkdir -p /usr/local/share/xray /tmp/xray_extract
@@ -198,10 +184,37 @@ mv /tmp/xray_extract/xray /usr/local/bin/xray
 chmod +x /usr/local/bin/xray
 mv /tmp/xray_extract/*.dat /usr/local/share/xray/
 rm -rf /tmp/xray_extract "/tmp/${XRAY_ZIP}"
+echo "✓ Xray 核心安装完成: $(/usr/local/bin/xray version | head -n1)"
 
-echo "✓ Xray 核心预部署完成: $(/usr/local/bin/xray version | head -n1)"
-# =========================================
+# 3. 预创建配置目录与 systemd 服务文件 (防止 handler.sh 写入报错)
+mkdir -p /usr/local/etc/xray /var/log/xray
 
+cat << 'EOF' > /etc/systemd/system/xray.service
+[Unit]
+Description=Xray Service
+Documentation=https://github.com/xtls
+After=network.target nss-lookup.target
+
+[Service]
+User=root
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+ExecStart=/usr/local/bin/xray run -config /usr/local/etc/xray/config.json
+Restart=on-failure
+RestartPreventExitStatus=23
+LimitNPROC=10000
+LimitNOFILE=1000000
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable xray
+echo "✓ 配置目录 /usr/local/etc/xray 与 systemd 服务已就绪"
+
+# 4. 下载并运行自动化配置脚本
 echo "等待 2 秒后开始运行配置脚本..."
 sleep 2
 
@@ -327,6 +340,6 @@ echo "生成的 Xray 随机端口为: ${RANDOM_PORT}"
 echo "（若为 LXD NAT VPS，请记得在商家面板将外部端口映射到内网的 ${RANDOM_PORT}）"
 echo ""
 echo "请使用以下命令检查状态："
-echo "  systemctl status xray     # 查看 Xray 运行状态"
-echo "  ss -tulnp | grep ${RANDOM_PORT}  # 查看端口监听状态"
+echo "  systemctl status xray             # 查看 Xray 运行状态"
+echo "  ss -tulnp | grep ${RANDOM_PORT}   # 查看端口监听状态"
 echo ""
